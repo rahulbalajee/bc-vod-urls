@@ -1,6 +1,6 @@
 # bc-vod-urls
 
-A command-line utility to generate VOD (Video on Demand) URLs from Brightcove live playback URLs.
+A command-line utility to generate VOD URLs from Brightcove NextGenLive playback URLs.
 
 ## Description
 
