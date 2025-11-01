@@ -125,13 +125,19 @@ func (app *application) getSessions(token, playbackURL string) (*Sessions, strin
 func (app *application) generatePlaybackToken(sessions *Sessions, token string) ([]PlaybackToken, error) {
 	var url string
 	var playbackTokens []PlaybackToken
-	// Just need to read one session, because the account and resource ID are going to be the same for all sessions
-	if len(sessions.Events) > 0 {
-		session := sessions.Events[0]
-		url = fmt.Sprintf("https://api.live.brightcove.com/v2/accounts/%s/playback/%s/token", session.AccountID, session.ResourceID)
-	} else {
+	if len(sessions.Events) == 0 {
 		return nil, errors.New("no events in session, quitting")
 	}
+	// Check if any session is currently live (EndTime == 0)
+	// When a resource is live, the API won't allow VOD generation for ANY sessions
+	for _, session := range sessions.Events {
+		if session.EndTime == 0 {
+			return nil, fmt.Errorf("resource %s has an ongoing live session, cannot generate VOD URLs until the stream ends", session.ResourceID)
+		}
+	}
+
+	session := sessions.Events[0]
+	url = fmt.Sprintf("https://api.live.brightcove.com/v2/accounts/%s/playback/%s/token", session.AccountID, session.ResourceID)
 
 	for _, session := range sessions.Events {
 		data := struct {
