@@ -19,8 +19,7 @@ import (
 )
 
 const (
-	manifestFormatHLS  = "hls"
-	manifestFormatDASH = "dash"
+	manifestFormatHLS = "hls"
 )
 
 type application struct {
