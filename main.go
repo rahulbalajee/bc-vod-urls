@@ -71,13 +71,13 @@ func (app *application) generateToken(clientID, clientSecret string) (*Token, er
 }
 
 func (app *application) getSessions(token, playbackURL string) (*Sessions, string, error) {
-	brokenPlaybackURL := strings.Split(playbackURL, "/")
-	if len(brokenPlaybackURL) <= 5 {
+	parts := strings.Split(playbackURL, "/")
+	if len(parts) <= 5 {
 		return nil, "", errors.New("malformed playback URL")
 	}
-	var resourceID = brokenPlaybackURL[3]
+	var resourceID = parts[3]
 
-	url := fmt.Sprintf("https://api.live.brightcove.com/v2/accounts/%s/sessions/resource/%s", brokenPlaybackURL[5], brokenPlaybackURL[3])
+	url := fmt.Sprintf("https://api.live.brightcove.com/v2/accounts/%s/sessions/resource/%s", parts[5], parts[3])
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, resourceID, fmt.Errorf("error framing request: %w", err)
