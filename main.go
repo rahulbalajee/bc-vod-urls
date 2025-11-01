@@ -18,6 +18,11 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const (
+	manifestFormatHLS  = "hls"
+	manifestFormatDASH = "dash"
+)
+
 type application struct {
 	client *http.Client
 }
@@ -77,6 +82,9 @@ func (app *application) generateToken(clientID, clientSecret string) (*Token, er
 }
 
 func (app *application) getSessions(token, playbackURL string) (*Sessions, string, error) {
+	// playbackURL should be of format https://fastly.live.brightcove.com/6384185469112/ap-south-1/6415518627001/eyJyui.../playlist-hls.m3u8
+	// parsedURL.Path would be would be /6384185469112/ap-south-1/6415518627001/eyJyui.../playlist-hls.m3u8
+	// pathParts[1] = VideoID/JobID/ResourceID pathParts[3] = AccountID
 	parsedURL, err := url.Parse(playbackURL)
 	if err != nil {
 		return nil, "", fmt.Errorf("error parsing playbackURL: %w", err)
@@ -132,7 +140,7 @@ func (app *application) generatePlaybackToken(sessions *Sessions, token string) 
 		}{
 			StartTime:      strconv.Itoa(session.StartTime),
 			EndTime:        strconv.Itoa(session.EndTime),
-			ManifestFormat: "hls",
+			ManifestFormat: manifestFormatHLS,
 		}
 		var buf bytes.Buffer
 		err := json.NewEncoder(&buf).Encode(data)
@@ -153,15 +161,16 @@ func (app *application) generatePlaybackToken(sessions *Sessions, token string) 
 		}
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
 			return nil, fmt.Errorf("received error from API with status %d and error %v", resp.StatusCode, string(body))
 		}
 
 		var token PlaybackToken
 		err = json.NewDecoder(resp.Body).Decode(&token)
+		resp.Body.Close()
 		if err != nil {
 			return nil, fmt.Errorf("error decoding body: %w", err)
 		}
-		resp.Body.Close()
 
 		playbackTokens = append(playbackTokens, token)
 	}
@@ -185,17 +194,18 @@ func (app *application) generatePlaybackURL(tokens []PlaybackToken, resourceID s
 		}
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
 			return nil, fmt.Errorf("received error from API with status %d and error %v", resp.StatusCode, string(body))
 		}
 
-		var PlaybackURL URL
-		err = json.NewDecoder(resp.Body).Decode(&PlaybackURL)
+		var playbackURL URL
+		err = json.NewDecoder(resp.Body).Decode(&playbackURL)
+		resp.Body.Close()
 		if err != nil {
 			return nil, fmt.Errorf("error decoding body: %w", err)
 		}
-		resp.Body.Close()
 
-		playbackURLs = append(playbackURLs, PlaybackURL)
+		playbackURLs = append(playbackURLs, playbackURL)
 	}
 
 	return playbackURLs, nil
