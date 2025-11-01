@@ -152,7 +152,7 @@ func (app *application) generatePlaybackToken(sessions *Sessions, token string) 
 }
 
 func (app *application) generatePlaybackURL(tokens []PlaybackToken, resourceID string) ([]URL, error) {
-	var PlaybackURLs []URL
+	var playbackURLs []URL
 	for _, token := range tokens {
 		url := fmt.Sprintf("https://api.live.brightcove.com/v2/playback/%s?pt=%s", resourceID, token.Token)
 		req, err := http.NewRequest(http.MethodGet, url, nil)
@@ -173,10 +173,10 @@ func (app *application) generatePlaybackURL(tokens []PlaybackToken, resourceID s
 		}
 		resp.Body.Close()
 
-		PlaybackURLs = append(PlaybackURLs, PlaybackURL)
+		playbackURLs = append(playbackURLs, PlaybackURL)
 	}
 
-	return PlaybackURLs, nil
+	return playbackURLs, nil
 }
 
 func main() {
