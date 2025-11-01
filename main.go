@@ -70,7 +70,7 @@ func (app *application) generateToken(clientID, clientSecret string) (*Token, er
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("received error from API with status %d and error %v", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("received error from API with status %d and error %s", resp.StatusCode, string(body))
 	}
 
 	var token Token
@@ -110,7 +110,7 @@ func (app *application) getSessions(token, playbackURL string) (*Sessions, strin
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, "", fmt.Errorf("received error from API with status %d and error %v", resp.StatusCode, string(body))
+		return nil, "", fmt.Errorf("received error from API with status %d and error %s", resp.StatusCode, string(body))
 	}
 
 	var sessions Sessions
@@ -125,6 +125,7 @@ func (app *application) getSessions(token, playbackURL string) (*Sessions, strin
 func (app *application) generatePlaybackToken(sessions *Sessions, token string) ([]PlaybackToken, error) {
 	var url string
 	var playbackTokens []PlaybackToken
+	// Just need to read one session, because the account and resource ID are going to be the same for all sessions
 	if len(sessions.Events) > 0 {
 		session := sessions.Events[0]
 		url = fmt.Sprintf("https://api.live.brightcove.com/v2/accounts/%s/playback/%s/token", session.AccountID, session.ResourceID)
@@ -162,7 +163,7 @@ func (app *application) generatePlaybackToken(sessions *Sessions, token string) 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
-			return nil, fmt.Errorf("received error from API with status %d and error %v", resp.StatusCode, string(body))
+			return nil, fmt.Errorf("received error from API with status %d and error %s", resp.StatusCode, string(body))
 		}
 
 		var token PlaybackToken
@@ -195,7 +196,7 @@ func (app *application) generatePlaybackURL(tokens []PlaybackToken, resourceID s
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
-			return nil, fmt.Errorf("received error from API with status %d and error %v", resp.StatusCode, string(body))
+			return nil, fmt.Errorf("received error from API with status %d and error %s", resp.StatusCode, string(body))
 		}
 
 		var playbackURL URL
