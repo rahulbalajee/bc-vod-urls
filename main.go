@@ -21,6 +21,7 @@ import (
 const (
 	manifestFormatHLS  = "hls"
 	manifestFormatDASH = "dash"
+	vodWindowDuration  = 14
 )
 
 type application struct {
@@ -141,7 +142,7 @@ func (app *application) generatePlaybackToken(sessions *Sessions, token string) 
 
 	for _, session := range sessions.Events {
 		// Checks if a session end time is within the last 14 days, otherwise skip generating token for that session
-		if time.Unix(int64(session.EndTime), 0).Before(time.Now().AddDate(0, 0, -14)) {
+		if time.Unix(int64(session.StartTime), 0).Before(time.Now().AddDate(0, 0, -vodWindowDuration)) {
 			fmt.Printf("resource %s was streamed before 14 days with end time %d, VOD window out of range\n", session.ID, session.EndTime)
 			continue
 		}
