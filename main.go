@@ -57,25 +57,19 @@ func (app *application) generateToken(clientID, clientSecret string) (*Token, er
 	encodedCredentials := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", clientID, clientSecret)))
 
 	const url = "https://oauth.brightcove.com/v4/access_token"
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader([]byte("grant_type=client_credentials")))
-	if err != nil {
-		return nil, fmt.Errorf("error framing request: %w", err)
+	payload := bytes.NewReader([]byte("grant_type=client_credentials"))
+	headers := http.Header{
+		"Content-Type":  {"application/x-www-form-urlencoded"},
+		"Authorization": {"Basic " + encodedCredentials},
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Authorization", "Basic "+encodedCredentials)
 
-	resp, err := app.client.Do(req)
+	body, err := app.HTTPClient(http.MethodPost, url, payload, headers)
 	if err != nil {
-		return nil, fmt.Errorf("error getting response: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("received error from API with status %d and error %s", resp.StatusCode, string(body))
+		return nil, err
 	}
 
 	var token Token
-	if err = json.NewDecoder(resp.Body).Decode(&token); err != nil {
+	if err = json.Unmarshal(body, &token); err != nil {
 		return nil, fmt.Errorf("error decoding body: %w", err)
 	}
 
@@ -90,32 +84,27 @@ func (app *application) getSessions(token, playbackURL string) (*Sessions, strin
 	if err != nil {
 		return nil, "", fmt.Errorf("error parsing playbackURL: %w", err)
 	}
+
 	pathParts := strings.Split(parsedURL.Path, "/")
 	if len(pathParts) < 6 {
 		return nil, "", errors.New("malformed playback URL provided")
 	}
+
 	var resourceID = pathParts[1]
 
 	url := fmt.Sprintf("https://api.live.brightcove.com/v2/accounts/%s/sessions/resource/%s", pathParts[3], pathParts[1])
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return nil, "", fmt.Errorf("error framing request: %w", err)
+	headers := http.Header{
+		"Content-Type":  {"application/json"},
+		"Authorization": {"Bearer " + token},
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
 
-	resp, err := app.client.Do(req)
+	body, err := app.HTTPClient(http.MethodGet, url, nil, headers)
 	if err != nil {
-		return nil, "", fmt.Errorf("error getting response: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, "", fmt.Errorf("received error from API with status %d and error %s", resp.StatusCode, string(body))
+		return nil, "", err
 	}
 
 	var sessions Sessions
-	err = json.NewDecoder(resp.Body).Decode(&sessions)
+	err = json.Unmarshal(body, &sessions)
 	if err != nil {
 		return nil, "", fmt.Errorf("error decoding body: %w", err)
 	}
@@ -126,6 +115,7 @@ func (app *application) getSessions(token, playbackURL string) (*Sessions, strin
 func (app *application) generatePlaybackToken(sessions *Sessions, token string) ([]PlaybackToken, error) {
 	var url string
 	var playbackTokens []PlaybackToken
+
 	if len(sessions.Events) == 0 {
 		return nil, errors.New("no events in session, quitting")
 	}
@@ -138,6 +128,7 @@ func (app *application) generatePlaybackToken(sessions *Sessions, token string) 
 	}
 
 	session := sessions.Events[0]
+
 	url = fmt.Sprintf("https://api.live.brightcove.com/v2/accounts/%s/playback/%s/token", session.AccountID, session.ResourceID)
 
 	for _, session := range sessions.Events {
@@ -161,32 +152,25 @@ func (app *application) generatePlaybackToken(sessions *Sessions, token string) 
 			return nil, fmt.Errorf("error encoding JSON: %w", err)
 		}
 
-		req, err := http.NewRequest(http.MethodPost, url, &buf)
-		if err != nil {
-			return nil, fmt.Errorf("error framing request: %w", err)
-		}
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+token)
-
-		resp, err := app.client.Do(req)
-		if err != nil {
-			return nil, fmt.Errorf("error getting response: %w", err)
-		}
-		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
-			return nil, fmt.Errorf("received error from API with status %d and error %s", resp.StatusCode, string(body))
+		headers := http.Header{
+			"Content-Type":  {"application/json"},
+			"Authorization": {"Bearer " + token},
 		}
 
-		var token PlaybackToken
-		err = json.NewDecoder(resp.Body).Decode(&token)
-		resp.Body.Close()
+		body, err := app.HTTPClient(http.MethodPost, url, &buf, headers)
+		if err != nil {
+			return nil, err
+		}
+
+		var playbackToken PlaybackToken
+		err = json.Unmarshal(body, &playbackToken)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding body: %w", err)
 		}
 
-		playbackTokens = append(playbackTokens, token)
+		playbackTokens = append(playbackTokens, playbackToken)
 	}
+
 	if len(playbackTokens) == 0 {
 		return nil, errors.New("no valid sessions to continue")
 	}
@@ -196,27 +180,20 @@ func (app *application) generatePlaybackToken(sessions *Sessions, token string) 
 
 func (app *application) generatePlaybackURL(tokens []PlaybackToken, resourceID string) ([]URL, error) {
 	var playbackURLs []URL
+
 	for _, token := range tokens {
 		url := fmt.Sprintf("https://api.live.brightcove.com/v2/playback/%s?pt=%s", resourceID, token.Token)
-		req, err := http.NewRequest(http.MethodGet, url, nil)
-		if err != nil {
-			return nil, fmt.Errorf("error framing request: %w", err)
+		headers := http.Header{
+			"Content-Type": {"application/json"},
 		}
-		req.Header.Set("Content-Type", "application/json")
 
-		resp, err := app.client.Do(req)
+		body, err := app.HTTPClient(http.MethodGet, url, nil, headers)
 		if err != nil {
-			return nil, fmt.Errorf("error getting response: %w", err)
-		}
-		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
-			return nil, fmt.Errorf("received error from API with status %d and error %s", resp.StatusCode, string(body))
+			return nil, err
 		}
 
 		var playbackURL URL
-		err = json.NewDecoder(resp.Body).Decode(&playbackURL)
-		resp.Body.Close()
+		err = json.Unmarshal(body, &playbackURL)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding body: %w", err)
 		}
@@ -227,11 +204,39 @@ func (app *application) generatePlaybackURL(tokens []PlaybackToken, resourceID s
 	return playbackURLs, nil
 }
 
+func (app *application) HTTPClient(method, url string, payload io.Reader, headers http.Header) ([]byte, error) {
+	req, err := http.NewRequest(method, url, payload)
+	if err != nil {
+		return nil, fmt.Errorf("error framing request: %w", err)
+	}
+
+	for k, v := range headers {
+		req.Header.Set(k, v[0])
+	}
+
+	resp, err := app.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error getting response: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("received error from API with status %d and error %s", resp.StatusCode, string(body))
+	}
+
+	return body, nil
+}
+
 func main() {
 	args := os.Args
 	if len(args) == 1 {
 		fmt.Println("Usage: ./timeshifturls <PLAYBACK_URL>")
-		os.Exit(0)
+		os.Exit(1)
 	}
 	playbackURL := args[1]
 
