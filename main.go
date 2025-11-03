@@ -235,7 +235,7 @@ func (app *application) HTTPClient(method, url string, payload io.Reader, header
 func main() {
 	args := os.Args
 	if len(args) == 1 {
-		fmt.Println("Usage: ./timeshifturls <PLAYBACK_URL>")
+		fmt.Println("Usage: ./vodurls <PLAYBACK_URL>")
 		os.Exit(1)
 	}
 	playbackURL := args[1]
