@@ -49,7 +49,7 @@ type PlaybackToken struct {
 	Token string `json:"token"`
 }
 
-type URL struct {
+type PlaybackURL struct {
 	URL string `json:"url"`
 }
 
@@ -133,7 +133,7 @@ func (app *application) generatePlaybackToken(sessions *Sessions, token string) 
 
 	for _, session := range sessions.Events {
 		// Checks if a session end time is within the last 14 days, otherwise skip generating token for that session
-		if time.Unix(int64(session.EndTime), 0).Before(time.Now().AddDate(0, 0, -vodWindowDuration)) {
+		if time.Unix(int64(session.EndTime), 0).Before(time.Now().UTC().AddDate(0, 0, -vodWindowDuration)) {
 			fmt.Printf("resource %s was streamed before 14 days with end time %d, VOD window out of range\n", session.ID, session.EndTime)
 			continue
 		}
@@ -178,8 +178,8 @@ func (app *application) generatePlaybackToken(sessions *Sessions, token string) 
 	return playbackTokens, nil
 }
 
-func (app *application) generatePlaybackURL(tokens []PlaybackToken, resourceID string) ([]URL, error) {
-	var playbackURLs []URL
+func (app *application) generatePlaybackURL(tokens []PlaybackToken, resourceID string) ([]PlaybackURL, error) {
+	var playbackURLs []PlaybackURL
 
 	for _, token := range tokens {
 		url := fmt.Sprintf("https://api.live.brightcove.com/v2/playback/%s?pt=%s", resourceID, token.Token)
@@ -192,7 +192,7 @@ func (app *application) generatePlaybackURL(tokens []PlaybackToken, resourceID s
 			return nil, err
 		}
 
-		var playbackURL URL
+		var playbackURL PlaybackURL
 		err = json.Unmarshal(body, &playbackURL)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding body: %w", err)
