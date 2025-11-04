@@ -63,7 +63,7 @@ func (app *application) generateToken(clientID, clientSecret string) (*Token, er
 		"Authorization": {"Basic " + encodedCredentials},
 	}
 
-	body, err := app.HTTPClient(http.MethodPost, url, payload, headers)
+	body, err := app.doRequest(http.MethodPost, url, payload, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (app *application) getSessions(token, playbackURL string) (*Sessions, strin
 		"Authorization": {"Bearer " + token},
 	}
 
-	body, err := app.HTTPClient(http.MethodGet, url, nil, headers)
+	body, err := app.doRequest(http.MethodGet, url, nil, headers)
 	if err != nil {
 		return nil, "", err
 	}
@@ -157,7 +157,7 @@ func (app *application) generatePlaybackToken(sessions *Sessions, token string) 
 			"Authorization": {"Bearer " + token},
 		}
 
-		body, err := app.HTTPClient(http.MethodPost, url, &buf, headers)
+		body, err := app.doRequest(http.MethodPost, url, &buf, headers)
 		if err != nil {
 			return nil, err
 		}
@@ -187,7 +187,7 @@ func (app *application) generatePlaybackURL(tokens []PlaybackToken, resourceID s
 			"Content-Type": {"application/json"},
 		}
 
-		body, err := app.HTTPClient(http.MethodGet, url, nil, headers)
+		body, err := app.doRequest(http.MethodGet, url, nil, headers)
 		if err != nil {
 			return nil, err
 		}
@@ -204,7 +204,7 @@ func (app *application) generatePlaybackURL(tokens []PlaybackToken, resourceID s
 	return playbackURLs, nil
 }
 
-func (app *application) HTTPClient(method, url string, payload io.Reader, headers http.Header) ([]byte, error) {
+func (app *application) doRequest(method, url string, payload io.Reader, headers http.Header) ([]byte, error) {
 	req, err := http.NewRequest(method, url, payload)
 	if err != nil {
 		return nil, fmt.Errorf("error framing request: %w", err)
